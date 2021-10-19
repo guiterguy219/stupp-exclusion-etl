@@ -1,0 +1,136 @@
+from config import ERC_AVAILABLE_COLUMNS, ERC_BASE_PAYLOAD, ERC_BASE_URI, ERC_QUERY_COLUMN_DATA, OF_AVAILABLE_COLUMNS
+import requests
+from bs4 import BeautifulSoup
+import json
+from copy import deepcopy
+import re
+import os
+
+class ExclusionRequestsClient:
+    def __init__(self):
+        r = requests.get(ERC_BASE_URI)
+        self.cookie_string = self._format_cookie_string(r.headers.get('Set-Cookie'))
+        self.rv_token = self._find_csrf_token(r.text)
+        self.headers = {}
+        self.headers['Cookie'] = self.cookie_string
+        self.headers['RequestVerificationToken'] = self.rv_token
+        self.headers['Accept'] = '*/*'
+        self.headers['User-Agent'] = 'PostmanRuntime/7.28.4'
+        self.headers['Host'] = '232app.azurewebsites.net'
+        self.headers['Origin'] = 'https://232app.azurewebsites.net'
+        self.headers['Referer'] = 'https://232app.azurewebsites.net/'
+        self.is_authenticated = False
+
+    def _find_csrf_token(self, html):
+        soup = BeautifulSoup(html, features="html.parser")
+        el_results = soup.find_all('input', attrs={'name': '__RequestVerificationToken'})
+        if len(el_results) > 0:
+            return el_results[0]['value']
+
+    def _format_cookie_string(self, cookie_string):
+        full_cookies = cookie_string.split(',')
+        cookies = [ cookie.split(';')[0].strip() for cookie in full_cookies ]
+        return '; '.join(cookies)
+
+    def _build_column(self, **kwargs):
+        return deepcopy({ **ERC_QUERY_COLUMN_DATA, **kwargs })
+
+    def _parse_input_tag(self, input, idx):
+        key = input.get('title', None)
+        if not key:
+            key = input.get('name', None)
+        if not key:
+            key = 'Untitled' + str(idx)
+        key = key.replace('BIS232Request.', '')
+        key = key.replace('JSONData.', '')
+        value = input.get('value')
+        if not value:
+            value = 'No value'
+        return (key, value)
+
+    def login(self, username, password):
+        body = {
+            'Input.Email': username,
+            'Input.Password': password,
+            '__RequestVerificationToken': self.rv_token,
+        }
+        self.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+        login_res = requests.post(ERC_BASE_URI + '/Identity/Account/Login', body, headers=self.headers, allow_redirects=False)
+        if not login_res.ok:
+            raise ValueError('Login failed')
+        
+        res_cookie_string = self._format_cookie_string(login_res.headers.get('Set-Cookie'))
+        self.cookie_string = self.cookie_string + '; ' + res_cookie_string
+        self.headers['Cookie'] = self.cookie_string
+
+        redirect_res = requests.get(ERC_BASE_URI + login_res.headers['Location'], headers=self.headers)
+        self.rv_token = self._find_csrf_token(redirect_res.text)
+        self.headers['RequestVerificationToken'] = self.rv_token
+
+        self.is_authenticated = True
+
+
+    def get_summaries(self, hts_code, limit=5000):
+        body = ERC_BASE_PAYLOAD
+        columns = { name: self._build_column(name=name, data=idx) for idx, name in enumerate(ERC_AVAILABLE_COLUMNS) }
+        columns['HTSUSCode']['search']['value'] = str(hts_code)
+        columns['HTSUSCode']['searchable'] = True
+        columns['PublicStatus']['search']['value'] = 'Window Open'
+        columns['PublicStatus']['searchable'] = True
+        body['columns'] = [ value for _, value in columns.items() ]
+        body['length'] = limit
+        body['order'][0]['column'] = 3
+        payload = json.dumps(body)
+        self.headers['Content-Type'] = 'application/json'
+        r = requests.post(f'{ERC_BASE_URI}index?handler=SummaryView', payload, headers=self.headers)
+        # TODO: check if recordsFitlered equals the number of records we actually got
+        return r.json()['data']
+
+    def get_request_details(self, request_id, summary=None):
+        request_url = f'{ERC_BASE_URI}/Forms/ExclusionRequestItem/{request_id}'
+        r = requests.get(request_url)
+        soup = BeautifulSoup(r.text, feature="html.parser")
+        all_values = self._read_page_inputs(soup, request_url)
+        if summary:
+            for idx, value in enumerate(summary):
+                all_values[ERC_AVAILABLE_COLUMNS[idx]] = value
+        scripts = ''.join([''.join(script.contents) for script in soup.body.find_all('script')])
+        origin_countries_matches = re.findall(r'\[{\"OriginCountry\"[^]]*\]', scripts)
+        if len(origin_countries_matches) > 0:
+            all_values['Source Countries'] = json.loads(origin_countries_matches[0])
+        organization_designations_matches = re.findall(r'\[{\"Organization\"[^]]*\]', scripts)
+        if len(organization_designations_matches) > 0:
+            all_values['Organization Designations'] = json.loads(organization_designations_matches[0])
+        return all_values
+
+    def get_objection_filings(self):
+        if not self.is_authenticated:
+            self.login(os.environ['ERC_USERNAME'], os.environ['ERC_PASSWORD'])
+        self.headers['Content-Type'] = 'application/json'
+        self.headers['Referer'] = f'{ERC_BASE_URI}/mydashboard'
+        self.headers['Content-Length'] = '0'
+        r = requests.post(f'{ERC_BASE_URI}/mydashboard?handler=GetMyOFs', json='', headers=self.headers)
+        print(r.text)
+        response_json =  json.loads(json.loads(r.text))
+        return response_json
+
+    def get_objection_details(self, objection_id, summary=None):
+        if not self.is_authenticated:
+            self.login(os.environ['ERC_USERNAME'], os.environ['ERC_PASSWORD'])
+        objection_url = f'{ERC_BASE_URI}/Forms/ObjectionFilingItem/{objection_id}'
+        r = requests.get(objection_url)
+        soup = BeautifulSoup(r.text, feature="html.parser")
+        all_values = self._read_page_inputs(soup, objection_url)
+        if summary:
+            for idx, value in enumerate(summary):
+                all_values[OF_AVAILABLE_COLUMNS[idx]] = value
+        return all_values
+
+    def _read_page_inputs(self, soup, url):
+        inputs = soup.form.find_all('input')
+        all_values = [ self._parse_input_tag(i, idx) for idx, i in enumerate(inputs) ]
+        all_values = { key : value for key, value in all_values }
+        all_values['URL'] = url
+        return all_values
+
+        
