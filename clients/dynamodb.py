@@ -42,5 +42,7 @@ class DyanmoDBClient:
             return { 'L' : [ self.typify_value(v) for v in value ]}
         elif t == str:
             return { 'S': value }
+        elif t == int:
+            return { 'S': str(value) }
         return { 'NULL' : True }
         

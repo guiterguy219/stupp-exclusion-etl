@@ -43,6 +43,7 @@ class ExclusionRequestsClient:
             key = 'Untitled' + str(idx)
         key = key.replace('BIS232Request.', '')
         key = key.replace('JSONData.', '')
+        key = key.replace('BIS232Objection.', '')
         value = input.get('value')
         if not value:
             value = 'No value'
@@ -89,7 +90,7 @@ class ExclusionRequestsClient:
     def get_request_details(self, request_id, summary=None):
         request_url = f'{ERC_BASE_URI}/Forms/ExclusionRequestItem/{request_id}'
         r = requests.get(request_url)
-        soup = BeautifulSoup(r.text, feature="html.parser")
+        soup = BeautifulSoup(r.text, features="html.parser")
         all_values = self._read_page_inputs(soup, request_url)
         if summary:
             for idx, value in enumerate(summary):
@@ -110,7 +111,6 @@ class ExclusionRequestsClient:
         self.headers['Referer'] = f'{ERC_BASE_URI}/mydashboard'
         self.headers['Content-Length'] = '0'
         r = requests.post(f'{ERC_BASE_URI}/mydashboard?handler=GetMyOFs', json='', headers=self.headers)
-        print(r.text)
         response_json =  json.loads(json.loads(r.text))
         return response_json
 
@@ -119,11 +119,11 @@ class ExclusionRequestsClient:
             self.login(os.environ['ERC_USERNAME'], os.environ['ERC_PASSWORD'])
         objection_url = f'{ERC_BASE_URI}/Forms/ObjectionFilingItem/{objection_id}'
         r = requests.get(objection_url)
-        soup = BeautifulSoup(r.text, feature="html.parser")
+        soup = BeautifulSoup(r.text, features="html.parser")
         all_values = self._read_page_inputs(soup, objection_url)
         if summary:
-            for idx, value in enumerate(summary):
-                all_values[OF_AVAILABLE_COLUMNS[idx]] = value
+            for key in OF_AVAILABLE_COLUMNS:
+                all_values[key] = summary[key]
         return all_values
 
     def _read_page_inputs(self, soup, url):
