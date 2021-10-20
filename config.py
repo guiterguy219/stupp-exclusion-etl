@@ -41,6 +41,20 @@ OF_AVAILABLE_COLUMNS = [
     "windowClose"
 ]
 
+SUR_AVAILABLE_COLUMNS = [
+    "id",
+    "company",
+    "product",
+    "erid",
+    "ofid",
+    "orid",
+    "publishDate",
+    "status",
+    "published",
+    "publicStatus",
+    "windowClose"
+]
+
 HTS_CODES = [
     7304191080,
     7304195080,

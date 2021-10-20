@@ -1,4 +1,4 @@
-from config import ERC_AVAILABLE_COLUMNS, ERC_BASE_PAYLOAD, ERC_BASE_URI, ERC_QUERY_COLUMN_DATA, OF_AVAILABLE_COLUMNS
+from config import ERC_AVAILABLE_COLUMNS, ERC_BASE_PAYLOAD, ERC_BASE_URI, ERC_QUERY_COLUMN_DATA, OF_AVAILABLE_COLUMNS, SUR_AVAILABLE_COLUMNS
 import requests
 from bs4 import BeautifulSoup
 import json
@@ -44,6 +44,7 @@ class ExclusionRequestsClient:
         key = key.replace('BIS232Request.', '')
         key = key.replace('JSONData.', '')
         key = key.replace('BIS232Objection.', '')
+        key = key.replace('BIS232ObjectionRebuttal', '')
         value = input.get('value')
         if not value:
             value = 'No value'
@@ -123,6 +124,28 @@ class ExclusionRequestsClient:
         all_values = self._read_page_inputs(soup, objection_url)
         if summary:
             for key in OF_AVAILABLE_COLUMNS:
+                all_values[key] = summary[key]
+        return all_values
+
+    def get_surrebuttals(self):
+        if not self.is_authenticated:
+            self.login(os.environ['ERC_USERNAME'], os.environ['ERC_PASSWORD'])
+        self.headers['Content-Type'] = 'application/json'
+        self.headers['Referer'] = f'{ERC_BASE_URI}/mydashboard'
+        self.headers['Content-Length'] = '0'
+        r = requests.post(f'{ERC_BASE_URI}/mydashboard?handler=GetMySRs', json='', headers=self.headers)
+        response_json =  json.loads(json.loads(r.text))
+        return response_json
+
+    def get_surrebuttal_details(self, surrebuttal_id, summary=None):
+        if not self.is_authenticated:
+            self.login(os.environ['ERC_USERNAME'], os.environ['ERC_PASSWORD'])
+        surrebuttal_url = f'{ERC_BASE_URI}/Forms/SurrebuttalItem/{surrebuttal_id}'
+        r = requests.get(surrebuttal_url)
+        soup = BeautifulSoup(r.text, features="html.parser")
+        all_values = self._read_page_inputs(soup, surrebuttal_url)
+        if summary:
+            for key in SUR_AVAILABLE_COLUMNS:
                 all_values[key] = summary[key]
         return all_values
 

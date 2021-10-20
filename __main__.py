@@ -83,4 +83,31 @@ def __main__():
     if len(batch) > 0:
             write_batch(batch, dynamo, 'objection_filings', 'id', verbose_logging=verbose_logging)
 
+    idx = 0
+    # PROCESS SURREBUTTALS
+    dynamo.with_table('surrebuttals', [('S', 'ID')], 'ID')
+    surrebuttals = erc.get_surrebuttals()
+
+    batch = []
+
+    print('Extracting and loading surrebuttals...')
+    surrebuttal_iterator = surrebuttals if verbose_logging else tqdm(surrebuttals)
+    for surrebuttal in surrebuttal_iterator:
+        # logging
+        idx = idx + 1
+        if verbose_logging:
+            print(f'{idx}/{len(surrebuttals)} -> Filing ID: {surrebuttal["id"]}')
+
+        details = erc.get_surrebuttal_details(surrebuttal['id'], surrebuttal)
+        typed_details = dynamo.typify_value(details)
+        batch.append(typed_details)
+
+        if len(batch) == 20:
+            write_batch(batch, dynamo, 'surrebuttals', 'id', verbose_logging=verbose_logging)
+            batch.clear()
+        pass
+
+    if len(batch) > 0:
+            write_batch(batch, dynamo, 'surrebuttals', 'id', verbose_logging=verbose_logging)
+
 __main__()
