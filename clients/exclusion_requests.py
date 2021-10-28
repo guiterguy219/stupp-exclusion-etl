@@ -35,7 +35,7 @@ class ExclusionRequestsClient:
     def _build_column(self, **kwargs):
         return deepcopy({ **ERC_QUERY_COLUMN_DATA, **kwargs })
 
-    def _parse_input_tag(self, input, idx):
+    def _parse_input_tag(self, input, idx, value_attr):
         key = input.get('title', None)
         if not key:
             key = input.get('name', None)
@@ -45,10 +45,13 @@ class ExclusionRequestsClient:
         key = key.replace('JSONData.', '')
         key = key.replace('BIS232Objection.', '')
         key = key.replace('BIS232ObjectionRebuttal', '')
-        value = input.get('value')
+        if value_attr:
+            value = input.get(value_attr)
+        else:
+            value = input.string
         if not value:
             value = 'No value'
-        return (key, value)
+        return (key, value)        
 
     def login(self, username, password):
         body = {
@@ -77,8 +80,6 @@ class ExclusionRequestsClient:
         columns = { name: self._build_column(name=name, data=idx) for idx, name in enumerate(ERC_AVAILABLE_COLUMNS) }
         columns['HTSUSCode']['search']['value'] = str(hts_code)
         columns['HTSUSCode']['searchable'] = True
-        columns['PublicStatus']['search']['value'] = 'Window Open'
-        columns['PublicStatus']['searchable'] = True
         body['columns'] = [ value for _, value in columns.items() ]
         body['length'] = limit
         body['order'][0]['column'] = 3
@@ -151,7 +152,9 @@ class ExclusionRequestsClient:
 
     def _read_page_inputs(self, soup, url):
         inputs = soup.form.find_all('input')
-        all_values = [ self._parse_input_tag(i, idx) for idx, i in enumerate(inputs) ]
+        textareas = soup.form.find_all('textarea')
+        all_values = [ self._parse_input_tag(i, idx, 'value') for idx, i in enumerate(inputs) ]
+        all_values = all_values + [ self._parse_input_tag(i, idx, None) for idx, i in enumerate(textareas) ]
         all_values = { key : value for key, value in all_values }
         all_values['URL'] = url
         return all_values
