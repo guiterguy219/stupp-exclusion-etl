@@ -13,8 +13,8 @@ def write_batch(batch, dynamo, to_table, id_field, **kwargs):
                 {
                     'PutRequest': {
                         'Item': {
-                            'ID': document['M'][id_field],
-                            'Details': document
+                            **document['M'],
+                            'ID': document['M'][id_field]
                         }
                     }
                 } for document in batch
