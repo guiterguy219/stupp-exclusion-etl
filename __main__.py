@@ -1,3 +1,4 @@
+import time
 from clients.dynamodb import DyanmoDBClient
 from config import HTS_CODES
 from clients.exclusion_requests import ExclusionRequestsClient
@@ -32,7 +33,7 @@ def __main__():
     dynamo = DyanmoDBClient()
 
     # PROCESS EXCLUSION REQUESTS
-    dynamo.with_table('exclusion_requests', [('S', 'ID')], 'ID')
+    dynamo.with_table('exclusion_requests', ('N', 'ID'), indexes=[('N', 'HTSUS Code'), ('S', 'PublicStatus')])
     print('Extracting and loading exclusion requests...')
     hts_code_iterator = HTS_CODES if verbose_logging else tqdm(HTS_CODES)
     for hts_code in hts_code_iterator:
@@ -58,7 +59,7 @@ def __main__():
 
     idx = 0
     # PROCESS OBJECTION FILINGS
-    dynamo.with_table('objection_filings', [('S', 'ID')], 'ID')
+    dynamo.with_table('objection_filings', ('N', 'ID'))
     objection_filings = erc.get_objection_filings()
 
     batch = []
@@ -85,7 +86,7 @@ def __main__():
 
     idx = 0
     # PROCESS SURREBUTTALS
-    dynamo.with_table('surrebuttals', [('S', 'ID')], 'ID')
+    dynamo.with_table('surrebuttals', ('N', 'ID'))
     surrebuttals = erc.get_surrebuttals()
 
     batch = []

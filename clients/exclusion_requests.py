@@ -51,6 +51,7 @@ class ExclusionRequestsClient:
             value = input.string
         if not value:
             value = 'No value'
+        value = str(value).strip()
         return (key, value)        
 
     def login(self, username, password):
@@ -157,6 +158,10 @@ class ExclusionRequestsClient:
         all_values = all_values + [ self._parse_input_tag(i, idx, None) for idx, i in enumerate(textareas) ]
         all_values = { key : value for key, value in all_values }
         all_values['URL'] = url
+        try:
+            del all_values['__RequestVerificationToken']
+        except KeyError:
+            pass
         return all_values
 
         
