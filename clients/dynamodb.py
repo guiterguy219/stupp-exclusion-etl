@@ -8,22 +8,24 @@ class DyanmoDBClient:
 
     def with_table(self, table_name, key, **kwargs):
         if self.get_table_status(table_name) == 'NOT CREATED':
-            self.resource.create_table(
-                AttributeDefinitions=[
+            table_create_args = {
+                'AttributeDefinitions': [
                     {
                         'AttributeName': name,
                         'AttributeType': type
                     } for type, name in [key] + kwargs.get('indexes', [])
                 ],
-                TableName=table_name,
-                KeySchema=[
+                'TableName': table_name,
+                'KeySchema': [
                     {
                         'AttributeName': key[1],
                         'KeyType': 'HASH'
                     }
                 ],
-                BillingMode='PAY_PER_REQUEST',
-                GlobalSecondaryIndexes=[
+                'BillingMode': 'PAY_PER_REQUEST'
+            }
+            if kwargs.get('indexes', False):
+                table_create_args['GlobalSecondaryIndexes'] = [
                     {
                         'IndexName': name.strip().replace(' ', '_') + '-Index',
                         'KeySchema': [{
@@ -35,7 +37,7 @@ class DyanmoDBClient:
                         }
                     } for _, name in kwargs.get('indexes', [])
                 ]
-            )
+            self.resource.create_table(**table_create_args)
         while not self.get_table_status(table_name) == 'ACTIVE':
             time.sleep(1)
 
