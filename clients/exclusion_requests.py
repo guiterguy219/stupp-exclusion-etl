@@ -49,8 +49,6 @@ class ExclusionRequestsClient:
             value = input.get(value_attr)
         else:
             value = input.string
-        if not value:
-            value = 'No value'
         value = str(value).strip()
         return (key, value)        
 
@@ -156,6 +154,7 @@ class ExclusionRequestsClient:
         textareas = soup.form.find_all('textarea')
         all_values = [ self._parse_input_tag(i, idx, 'value') for idx, i in enumerate(inputs) ]
         all_values = all_values + [ self._parse_input_tag(i, idx, None) for idx, i in enumerate(textareas) ]
+        all_values = filter(lambda pair : len(str(pair[1])) > 0, all_values)
         all_values = { key : value for key, value in all_values }
         all_values['URL'] = url
         try:

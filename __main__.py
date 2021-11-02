@@ -33,7 +33,15 @@ def __main__():
     dynamo = DyanmoDBClient()
 
     # PROCESS EXCLUSION REQUESTS
-    dynamo.with_table('exclusion_requests', [('N', 'HTSUSCode'), ('N', 'ID')], indexes=[('S', 'PublicStatus')])
+    indexes = [
+        ('N', 'HTSUSCode'),
+        ('S', 'PublicStatus'),
+        ('N', 'Minimum Thickness'),
+        ('N', 'Maximum Thickness'),
+        ('N', 'Minimum Inside Diameter'),
+        ('N', 'Maximum Inside Diameter')
+    ]
+    dynamo.with_table('exclusion_requests', [('N', 'ID')], indexes=indexes)
     print('Extracting and loading exclusion requests...')
     hts_code_iterator = HTS_CODES if verbose_logging else tqdm(HTS_CODES)
     for hts_code in hts_code_iterator:

@@ -51,7 +51,7 @@ class DyanmoDBClient:
     def typify_value(self, value):
         t = type(value)
         try:
-            value = int(str(value))
+            value = float(str(value))
             t = type(value)
         except ValueError:
             pass
@@ -61,7 +61,7 @@ class DyanmoDBClient:
             return { 'L' : [ self.typify_value(v) for v in value ]}
         elif t == str:
             return { 'S': value }
-        elif t == int:
+        elif t == int or t == float:
             return { 'N': str(value) }
         return { 'NULL' : True }
         
