@@ -13,14 +13,14 @@ class DyanmoDBClient:
                     {
                         'AttributeName': name,
                         'AttributeType': type
-                    } for type, name in [key] + kwargs.get('indexes', [])
+                    } for type, name in key + kwargs.get('indexes', [])
                 ],
                 'TableName': table_name,
                 'KeySchema': [
                     {
-                        'AttributeName': key[1],
-                        'KeyType': 'HASH'
-                    }
+                        'AttributeName': element[1],
+                        'KeyType': 'HASH' if idx == 0 else 'RANGE'
+                    } for idx, element in enumerate(key[:2])
                 ],
                 'BillingMode': 'PAY_PER_REQUEST'
             }
