@@ -5,10 +5,11 @@ import json
 from copy import deepcopy
 import re
 import os
+import logging
 
 class ExclusionRequestsClient:
     def __init__(self):
-        r = requests.get(ERC_BASE_URI)
+        r = self._get_with_retry(ERC_BASE_URI)
         self.cookie_string = self._format_cookie_string(r.headers.get('Set-Cookie'))
         self.rv_token = self._find_csrf_token(r.text)
         self.headers = {}
@@ -67,7 +68,7 @@ class ExclusionRequestsClient:
         self.cookie_string = self.cookie_string + '; ' + res_cookie_string
         self.headers['Cookie'] = self.cookie_string
 
-        redirect_res = requests.get(ERC_BASE_URI + login_res.headers['Location'], headers=self.headers)
+        redirect_res = self._get_with_retry(ERC_BASE_URI + login_res.headers['Location'], headers=self.headers)
         self.rv_token = self._find_csrf_token(redirect_res.text)
         self.headers['RequestVerificationToken'] = self.rv_token
 
@@ -90,7 +91,7 @@ class ExclusionRequestsClient:
 
     def get_request_details(self, request_id, summary=None):
         request_url = f'{ERC_BASE_URI}/Forms/ExclusionRequestItem/{request_id}'
-        r = requests.get(request_url)
+        r = self._get_with_retry(request_url)
         soup = BeautifulSoup(r.text, features="html.parser")
         all_values = self._read_page_inputs(soup, request_url)
         if summary:
@@ -119,7 +120,7 @@ class ExclusionRequestsClient:
         if not self.is_authenticated:
             self.login(os.environ['ERC_USERNAME'], os.environ['ERC_PASSWORD'])
         objection_url = f'{ERC_BASE_URI}/Forms/ObjectionFilingItem/{objection_id}'
-        r = requests.get(objection_url)
+        r = self._get_with_retry(objection_url)
         soup = BeautifulSoup(r.text, features="html.parser")
         all_values = self._read_page_inputs(soup, objection_url)
         if summary:
@@ -141,7 +142,7 @@ class ExclusionRequestsClient:
         if not self.is_authenticated:
             self.login(os.environ['ERC_USERNAME'], os.environ['ERC_PASSWORD'])
         surrebuttal_url = f'{ERC_BASE_URI}/Forms/SurrebuttalItem/{surrebuttal_id}'
-        r = requests.get(surrebuttal_url)
+        r = self._get_with_retry(surrebuttal_url)
         soup = BeautifulSoup(r.text, features="html.parser")
         all_values = self._read_page_inputs(soup, surrebuttal_url)
         if summary:
@@ -162,5 +163,19 @@ class ExclusionRequestsClient:
         except KeyError:
             pass
         return all_values
+
+    def _get_with_retry(self, url, *args, **kwargs):
+        retries = 0
+        allowed_retries = kwargs.get('allowed_retries')
+        if allowed_retries is not None:
+            del kwargs['allowed_retries']
+        else:
+            allowed_retries = 2
+        while retries <= allowed_retries:
+            retries += 1
+            try:
+                return requests.get(url, *args, **kwargs)
+            except Exception as e:
+                logging.error(e)
 
         

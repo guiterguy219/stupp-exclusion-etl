@@ -1,4 +1,4 @@
-import time
+import logging
 from clients.dynamodb import DyanmoDBClient
 from config import HTS_CODES
 from clients.exclusion_requests import ExclusionRequestsClient
@@ -7,7 +7,7 @@ import os
 
 def write_batch(batch, dynamo, to_table, id_field, **kwargs):
     if kwargs['verbose_logging']:
-        print(f'Writing batch of {len(batch)} items to database')
+        logging.info(f'Writing batch of {len(batch)} items to database')
     dynamo.client.batch_write_item(
         RequestItems={
             to_table: [
@@ -25,6 +25,7 @@ def write_batch(batch, dynamo, to_table, id_field, **kwargs):
 
 def __main__():
     # LOGGING
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
     verbose_logging = bool(os.environ.get('VERBOSE_LOGGING', False))
     idx = 0
 
@@ -42,7 +43,7 @@ def __main__():
         ('N', 'Maximum Inside Diameter')
     ]
     dynamo.with_table('exclusion_requests', [('N', 'ID')], indexes=indexes)
-    print('Extracting and loading exclusion requests...')
+    logging.info('Extracting and loading exclusion requests...')
     hts_code_iterator = HTS_CODES if verbose_logging else tqdm(HTS_CODES)
     for hts_code in hts_code_iterator:
         summaries = erc.get_summaries(hts_code)
@@ -51,7 +52,7 @@ def __main__():
         # logging
         idx = idx + 1
         if verbose_logging:
-            print(f'{idx}/{len(HTS_CODES)} -> HTS Code: {hts_code}; Requests: {len(summaries)}')
+            logging.info(f'{idx}/{len(HTS_CODES)} -> HTS Code: {hts_code}; Requests: {len(summaries)}')
         for summary in summaries:
             details = erc.get_request_details(summary[0], summary)
             typed_details = dynamo.typify_value(details)
@@ -72,13 +73,13 @@ def __main__():
 
     batch = []
     
-    print('Extracting and loading objection filings...')
+    logging.info('Extracting and loading objection filings...')
     filing_iterator = objection_filings if verbose_logging else tqdm(objection_filings)
     for filing in filing_iterator:
         # logging
         idx = idx + 1
         if verbose_logging:
-            print(f'{idx}/{len(objection_filings)} -> Filing ID: {filing["id"]}')
+            logging.info(f'{idx}/{len(objection_filings)} -> Filing ID: {filing["id"]}')
 
         details = erc.get_objection_details(filing['id'], filing)
         typed_details = dynamo.typify_value(details)
@@ -99,13 +100,13 @@ def __main__():
 
     batch = []
 
-    print('Extracting and loading surrebuttals...')
+    logging.info('Extracting and loading surrebuttals...')
     surrebuttal_iterator = surrebuttals if verbose_logging else tqdm(surrebuttals)
     for surrebuttal in surrebuttal_iterator:
         # logging
         idx = idx + 1
         if verbose_logging:
-            print(f'{idx}/{len(surrebuttals)} -> Filing ID: {surrebuttal["id"]}')
+            logging.info(f'{idx}/{len(surrebuttals)} -> Filing ID: {surrebuttal["id"]}')
 
         details = erc.get_surrebuttal_details(surrebuttal['id'], surrebuttal)
         typed_details = dynamo.typify_value(details)
