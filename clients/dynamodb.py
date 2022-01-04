@@ -50,11 +50,17 @@ class DyanmoDBClient:
 
     def typify_value(self, value):
         t = type(value)
-        try:
-            value = float(str(value))
-            t = type(value)
-        except ValueError:
-            pass
+        # Check for values that may be converted into infinity or NaN (ie: 1E1771 becomes infinity)
+        if 'inf'not in str(value) and 'nan' not in str(value) and 'e' not in str(value).lower():
+            try:
+                value = int(str(value))
+                t = type(value)
+            except ValueError:
+                try:
+                    value = float(str(value))
+                    t = type(value)
+                except ValueError:
+                    pass
         if t == dict:
             return { 'M' : { k: self.typify_value(v) for k, v in value.items() }}
         elif t == list:
